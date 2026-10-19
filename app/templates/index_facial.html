@@ -1,0 +1,2801 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<meta name="theme-color" content="#0b0d0c">
+<title>Retirada de Armário</title>
+<script defer src="/static/face-api.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg-0:#0b0d0c;
+    --bg-1:#141715;
+    --panel:#191d1a;
+    --line: #2a2f2b;
+    --amber:#e8a33d;
+    --amber-dim:#8a6323;
+    --red: #c2402f;
+    --green:#4f9d69;
+    --ink:#eae7de;
+    --ink-dim:#8b8f89;
+  }
+  *{
+    box-sizing:border-box;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+    user-select:none;
+  }
+  input, textarea{
+    -webkit-user-select:text;
+    user-select:text;
+  }
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at 50% -10%, #1c211d 0%, var(--bg-0) 55%);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #kiosk{
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    padding:52px 28px 40px;
+  }
+
+  /* HEADER */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:22px;
+  }
+  .brand{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand .dot{
+    width:10px; height:10px; border-radius:50%;
+    background:var(--green);
+    box-shadow:0 0 8px var(--green);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+  .brand span{
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.12em;
+    font-size:12px;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+  }
+  #clock{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--ink-dim);
+  }
+
+  /* SCREENS */
+  .screen{ flex:1; display:none; flex-direction:column; min-height:0; }
+  .screen.active{ display:flex; }
+
+  h1{
+    font-size:28px;
+    font-weight:700;
+    margin:0 0 4px;
+    letter-spacing:-.01em;
+  }
+  .sub{
+    color:var(--ink-dim);
+    font-size:15px;
+    margin:0 0 22px;
+  }
+
+  /* STEP 1: grade de armários */
+  .grid-wrap{ flex:1; overflow-y:auto; padding-right:4px; display:flex; }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    grid-template-rows:repeat(5, 1fr);
+    gap:14px;
+    width:100%;
+    height:100%;
+  }
+  .cell{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+    position:relative;
+  }
+  .cell:active{ transform:scale(.94); }
+  .cell .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:22px;
+    font-weight:500;
+  }
+  .cell .tag{
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-top:4px;
+  }
+  .cell.free{ border-color:var(--line); }
+  .cell.free:hover{ border-color:var(--amber-dim); background:#1d211c; }
+  .cell.occupied{
+    border-color: rgba(194,64,47,.4);
+    background: linear-gradient(180deg, #1d1714, #171412);
+  }
+  .cell.occupied .num{ color: var(--red); }
+  .cell.occupied .tag{ color: rgba(194,64,47,.7); }
+  .cell.selected{
+    border-color:var(--amber);
+    background:#231b0f;
+    box-shadow: 0 0 0 1px var(--amber) inset;
+  }
+  .cell.selected .num{ color:var(--amber); }
+
+  .cell.admin-mode{
+    border-color: var(--amber-dim);
+    box-shadow: 0 0 0 1px var(--amber-dim) inset;
+  }
+  .cell.admin-mode:active{ transform:scale(.92); }
+  .cell.admin-mode .tag{ color: var(--amber); }
+
+  .legend{
+    display:flex; gap:20px; margin-top:16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:var(--ink-dim);
+  }
+  .legend span{ display:flex; align-items:center; gap:6px; }
+  .legend i{ width:8px; height:8px; border-radius:2px; display:inline-block; }
+
+  /* STEP 2: confirmação */
+  .confirm-body{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  }
+  .big-num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:120px;
+    font-weight:500;
+    color:var(--amber);
+    line-height:1;
+    margin-bottom:8px;
+  }
+  .confirm-body p{ color:var(--ink-dim); font-size:15px; margin:0 0 40px; }
+
+  /* STEP 3: abrindo */
+  .opening-body{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  }
+  .ring{
+    width:120px; height:120px; border-radius:50%;
+    border:3px solid var(--line);
+    border-top-color:var(--amber);
+    animation:spin 1s linear infinite;
+    margin-bottom:28px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  /* STEP 4: sucesso / erro */
+  .result-body{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  }
+  .icon-circle{
+    width:96px; height:96px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:24px;
+    font-size:44px;
+  }
+  .icon-circle.ok{ background:rgba(79,157,105,.12); border:1px solid var(--green); color:var(--green); }
+  .icon-circle.fail{ background:rgba(194,64,47,.12); border:1px solid var(--red); color:var(--red); }
+
+  /* BUTTONS */
+  .btn-row{ display:flex; gap:12px; margin-top:auto; }
+  button{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:16px;
+    border:none;
+    border-radius:10px;
+    padding:18px 22px;
+    cursor:pointer;
+    transition:filter .12s ease, transform .12s ease;
+  }
+  button:active{ transform:scale(.97); }
+  .btn-primary{ background:var(--amber); color:#1b1406; flex:1; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ background:var(--amber-dim); color:#4a3a19; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); }
+  .btn-ghost:hover{ color:var(--ink); border-color:var(--ink-dim); }
+
+  ::-webkit-scrollbar{ width:6px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+
+  .mode-banner{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:6px 0;
+    display:none;
+  }
+  .mode-banner.show{ display:block; }
+  .mode-banner.simulated{ color:#1b1406; background:var(--amber); }
+  .mode-banner.production{ color:#0a1f12; background:var(--green); }
+  .mode-banner.admin-active{ color:#1b1406; background:var(--amber); cursor:pointer; }
+
+  .door-alert-banner{
+    display:none;
+    background:var(--red);
+    color:#fff;
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:.03em;
+    padding:8px 16px;
+    cursor:pointer;
+  }
+  .door-alert-banner.show{
+    display:block;
+    animation:alertPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes alertPulse{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:.75; }
+  }
+  /* padding-top do #kiosk agora é ajustado dinamicamente via JS
+     (função adjustKioskPadding), conforme quantos banners estão
+     visíveis ao mesmo tempo — veja o script no fim do arquivo. */
+
+  /* TELAS DE CÂMERA (cadastro / verificação facial) */
+  .cam-body{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .cam-frame{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    aspect-ratio: 4/3;
+    background:#000;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .cam-frame video{
+    width:100%; height:100%; object-fit:cover; transform:scaleX(-1);
+  }
+  .cam-frame canvas{
+    position:absolute; top:0; left:0; width:100%; height:100%; transform:scaleX(-1);
+  }
+  .cam-oval{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:56%; height:78%;
+    border:3px solid var(--amber);
+    border-radius:50% / 40%;
+    opacity:.55;
+    pointer-events:none;
+    transition:border-color .2s ease, opacity .2s ease;
+  }
+  .cam-oval.locked{ border-color:var(--green); opacity:.9; }
+  .cam-status{
+    margin-top:16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--ink-dim);
+    min-height:18px;
+  }
+  .cam-status.ok{ color:var(--green); }
+  .cam-status.warn{ color:var(--amber); }
+  .cam-status.fail{ color:var(--red); }
+
+  /* PAINEL DE CONFIGURAÇÃO DA PLACA */
+  .config-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.6);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  .config-overlay.active{ display:flex; }
+
+  .config-panel{
+    width:92%;
+    max-width:420px;
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  .config-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .config-header h2{ font-size:18px; margin:0; }
+  .config-close{
+    background:transparent; border:none; color:var(--ink-dim);
+    font-size:18px; cursor:pointer; padding:4px 8px;
+  }
+  .config-close:hover{ color:var(--ink); }
+
+  .config-body{ display:flex; flex-direction:column; gap:16px; }
+
+  .config-label{
+    display:flex; flex-direction:column; gap:6px;
+    font-size:13px; color:var(--ink-dim);
+  }
+  .config-label input[type=text],
+  .config-label input[type=number],
+  .config-label select{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14px;
+  }
+  .config-row{ display:flex; gap:8px; }
+  .config-row select{ flex:1; }
+  .config-btn-ghost{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink);
+    width:40px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  .config-checkbox{
+    display:flex; align-items:center; gap:10px;
+    font-size:13px; color:var(--ink-dim);
+    cursor:pointer;
+  }
+  .config-checkbox input{ width:16px; height:16px; }
+
+  .config-test-result{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    line-height:1.5;
+    padding:10px;
+    border-radius:8px;
+    min-height:20px;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .config-test-result.ok{ background:rgba(79,157,105,.12); color:var(--green); border:1px solid var(--green); }
+  .config-test-result.fail{ background:rgba(194,64,47,.12); color:var(--red); border:1px solid var(--red); }
+  .config-test-result.loading{ color:var(--ink-dim); }
+
+  .config-footer{
+    display:flex; gap:10px; margin-top:20px;
+  }
+  .config-footer button{ flex:1; }
+
+  .config-scan-btn{
+    background:transparent;
+    border:1px dashed var(--line);
+    border-radius:8px;
+    padding:10px;
+    color:var(--ink-dim);
+    font-family:'Space Grotesk', sans-serif;
+    font-size:13px;
+    cursor:pointer;
+    text-align:center;
+  }
+  .config-scan-btn:hover{ border-color:var(--amber-dim); color:var(--ink); }
+  .config-scan-btn:disabled{ opacity:.5; cursor:wait; }
+
+  /* MENU HUB */
+  .menu-hub-list{ display:flex; flex-direction:column; gap:8px; }
+  .menu-hub-item{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14px;
+    cursor:pointer;
+    text-align:left;
+  }
+  .menu-hub-item:hover{ border-color:var(--amber-dim); }
+  .menu-hub-item:active{ transform:scale(.98); }
+  .menu-hub-state{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+  }
+  .menu-hub-state.active{ color:var(--amber); }
+
+  /* TECLADO NUMÉRICO VIRTUAL */
+  .numpad{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    margin:14px 0;
+  }
+  .numpad button{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:20px;
+    padding:16px 0;
+    cursor:pointer;
+  }
+  .numpad button:active{ transform:scale(.94); background:#231b0f; }
+  .numpad button.numpad-ghost{ color:var(--ink-dim); font-size:14px; }
+
+  input[readonly].pin-field-active{
+    border-color:var(--amber) !important;
+    box-shadow:0 0 0 1px var(--amber) inset;
+  }
+
+  /* LOGS */
+  .logs-content{
+    background:#0a0c0a;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px;
+    max-height:50vh;
+    overflow-y:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    line-height:1.6;
+    white-space:pre-wrap;
+    word-break:break-word;
+    color:var(--ink-dim);
+  }
+
+  /* (grade admin antiga removida — agora usa a grade principal) */
+</style>
+</head>
+<body oncontextmenu="return false;">
+
+<div id="kiosk">
+  <header>
+    <div class="brand">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-text">verificando conexão</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <button id="config-toggle" onclick="openMenuHub()"
+        style="background:transparent; border:1px solid var(--line); border-radius:8px;
+               padding:6px 10px; font-size:16px; color:var(--ink);">⚙️</button>
+      <div id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- PAINEL DE CONFIGURAÇÃO DA PLACA -->
+  <!-- MENU PRINCIPAL DE CONFIGURAÇÃO -->
+  <div id="menu-hub-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:360px;">
+      <div class="config-header">
+        <h2>Configuração</h2>
+        <button class="config-close" onclick="closeMenuHub()">✕</button>
+      </div>
+      <div class="menu-hub-list">
+        <button class="menu-hub-item" onclick="menuGoAdmin()">
+          <span>🔓 Modo admin</span>
+          <span id="menu-admin-state" class="menu-hub-state">desativado</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuToggleVoice()">
+          <span>🔊 Silenciar áudio</span>
+          <span id="menu-voice-state" class="menu-hub-state">ligado</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuGoModuleConfig()">
+          <span>⚙️ Configuração de módulo</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuGoSensorConfig()">
+          <span>📡 Configuração de sensor</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuGoPassword()">
+          <span>🔑 Alteração de senha</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuGoCamera()">
+          <span>📷 Configuração de câmera</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" onclick="menuGoLogs()">
+          <span>📋 Logs</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" id="menu-android-wifi-btn" onclick="window.AndroidSystem.openWifiSettings()" style="display:none;">
+          <span>📶 Wi-Fi do tablet</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" id="menu-android-settings-btn" onclick="window.AndroidSystem.openAndroidSettings()" style="display:none;">
+          <span>🛠️ Configurações do Android</span>
+          <span>›</span>
+        </button>
+        <button class="menu-hub-item" id="menu-android-uninstall-btn" onclick="menuGoUninstall()" style="display:none;">
+          <span>🗑️ Desinstalar este app</span>
+          <span>›</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIGURAÇÃO DE MÓDULO (porta, endereço, baud rate, tempos) -->
+  <div id="module-config-overlay" class="config-overlay">
+    <div class="config-panel">
+      <div class="config-header">
+        <h2>Configuração de módulo</h2>
+        <button class="config-close" onclick="closeModuleConfig()">✕</button>
+      </div>
+
+      <div class="config-body">
+        <label class="config-label">
+          Porta serial
+          <div class="config-row">
+            <select id="cfg-port"></select>
+            <button class="config-btn-ghost" onclick="loadPorts()">↻</button>
+          </div>
+        </label>
+
+        <label class="config-label">
+          Endereço da placa (dip switch)
+          <input id="cfg-address" type="number" min="1" max="32" value="1">
+        </label>
+
+        <label class="config-label">
+          Baud rate
+          <select id="cfg-baudrate">
+            <option value="9600">9600 (padrão de fábrica)</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="115200">115200</option>
+          </select>
+        </label>
+
+        <label class="config-checkbox">
+          <input id="cfg-simulate" type="checkbox">
+          <span>Modo simulado (não usa a placa física — para testes)</span>
+        </label>
+
+        <button class="config-scan-btn" onclick="scanAllPorts()" id="cfg-scan-btn">
+          🔍 Não sei em qual porta está a placa — escanear tudo
+        </button>
+
+        <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
+          <label class="config-label">Tempos de comunicação</label>
+          <div class="config-row" style="margin-top:6px;">
+            <label class="config-label" style="flex:1;">
+              Timeout total (ms)
+              <input id="cfg-response-timeout" type="number" min="100" max="10000" step="100" value="2000">
+            </label>
+            <label class="config-label" style="flex:1;">
+              Silêncio p/ fim (ms)
+              <input id="cfg-idle-silence" type="number" min="20" max="3000" step="10" value="250">
+            </label>
+          </div>
+          <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+            Se a placa demorar mais que o normal pra responder (ex: numa
+            instalação com fiação longa), aumente o timeout total. Se
+            estiver recebendo respostas cortadas, aumente o silêncio.
+          </p>
+        </div>
+
+        <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
+          <label class="config-label">Reconhecimento facial — limite de correspondência</label>
+          <input id="cfg-face-threshold" type="number" min="0.20" max="1.50" step="0.01" value="0.50" style="margin-top:6px;">
+          <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+            Controla o quão parecido o rosto precisa ser pra contar
+            como "é a mesma pessoa". <strong>Número menor</strong> =
+            mais rigoroso (pode rejeitar a pessoa certa em condições
+            ruins de luz/ângulo). <strong>Número maior</strong> = mais
+            tolerante (risco de confundir pessoas parecidas — cuidado
+            com segurança). Valor padrão: 0.50 (faixa útil: 0.40 a 0.60). A distância calculada
+            em cada tentativa fica registrada em 📋 Logs, pra ajudar a
+            calibrar com precisão.
+          </p>
+        </div>
+
+        <div id="config-test-result" class="config-test-result"></div>
+      </div>
+
+      <div class="config-footer">
+        <button class="btn-ghost" onclick="testConnection()" id="cfg-test-btn">Testar conexão</button>
+        <button class="btn-primary" onclick="saveConfig()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIGURAÇÃO DE SENSOR (fim de curso) -->
+  <div id="sensor-config-overlay" class="config-overlay">
+    <div class="config-panel">
+      <div class="config-header">
+        <h2>Configuração de sensor</h2>
+        <button class="config-close" onclick="closeSensorConfig()">✕</button>
+      </div>
+
+      <div class="config-body">
+        <label class="config-checkbox">
+          <input id="cfg-sensor-master" type="checkbox" onchange="toggleSensorFields()">
+          <span>Usar sensor de fim de curso</span>
+        </label>
+        <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+          Ative se sua instalação tem sensor de fim de curso em cada
+          porta. Isso libera as opções de notificação abaixo.
+        </p>
+
+        <div id="sensor-config-fields" style="display:none;">
+          <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:14px;">
+            <label class="config-label" style="margin-bottom:8px;">Sinal do sensor quando a porta está ABERTA</label>
+            <select id="cfg-door-open-signal">
+              <option value="disconnected">Desconectado / nível baixo</option>
+              <option value="connected">Conectado / nível alto</option>
+            </select>
+            <label class="config-label" style="margin-top:10px;">
+              Verificar sensores a cada (s)
+              <input id="cfg-sensor-poll" type="number" min="1" max="60" step="1" value="5">
+            </label>
+            <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+              Configuração compartilhada pelas 3 notificações abaixo.
+            </p>
+          </div>
+
+          <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
+            <label class="config-checkbox">
+              <input id="cfg-notify-open" type="checkbox">
+              <span>1. Notificação de abertura de porta</span>
+            </label>
+            <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+              Avisa na hora quando o sensor confirmar que a porta abriu
+              depois de um comando. Se o sensor não mudar de estado,
+              indica que a porta (ou o sensor) está com defeito — e o
+              cadastro/liberação não é salvo.
+            </p>
+          </div>
+
+          <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
+            <label class="config-checkbox">
+              <input id="cfg-notify-left-open" type="checkbox">
+              <span>2. Notificação de porta aberta</span>
+            </label>
+            <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 10px;">
+              Só avisa se o sensor ficar no estado "aberto" por muito
+              tempo — indicando que a porta foi esquecida aberta.
+            </p>
+            <label class="config-label">
+              Tolerância antes de avisar (segundos)
+              <input id="cfg-door-grace" type="number" min="5" max="600" step="5" value="20">
+            </label>
+          </div>
+
+          <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
+            <label class="config-checkbox">
+              <input id="cfg-notify-violation" type="checkbox">
+              <span>3. Notificação de armário violado</span>
+            </label>
+            <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 10px;">
+              Avisa se o sensor detectar que uma porta abriu SEM nenhum
+              comando de abertura ter sido enviado pelo sistema —
+              indício de violação.
+            </p>
+            <label class="config-label">
+              Janela de autorização (segundos)
+              <input id="cfg-violation-window" type="number" min="3" max="120" step="1" value="15">
+            </label>
+            <p style="font-size:11px; color:var(--ink-dim); margin:6px 0 0;">
+              Se a porta abrir dentro desse tempo depois de um comando
+              legítimo, não conta como violação.
+            </p>
+          </div>
+        </div>
+
+        <div id="sensor-config-result" class="config-test-result"></div>
+      </div>
+
+      <div class="config-footer">
+        <button class="btn-primary" onclick="saveConfig()" style="width:100%;">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALTERAÇÃO DE SENHA (PIN do modo admin) -->
+  <div id="password-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:340px;">
+      <div class="config-header">
+        <h2>Alteração de senha</h2>
+        <button class="config-close" onclick="closePasswordConfig()">✕</button>
+      </div>
+
+      <div class="config-body">
+        <p style="color:var(--ink-dim); font-size:13px; margin-top:0;">
+          Troca o PIN usado para entrar no modo admin (🔓)
+        </p>
+        <input id="cfg-current-pin" type="password" inputmode="numeric" readonly
+          placeholder="PIN atual" onfocus="passwordActiveField='cfg-current-pin'"
+          onclick="passwordActiveField='cfg-current-pin'; highlightActivePinField();">
+        <input id="cfg-new-pin" type="password" inputmode="numeric" readonly
+          placeholder="Novo PIN" style="margin-top:10px;"
+          onfocus="passwordActiveField='cfg-new-pin'"
+          onclick="passwordActiveField='cfg-new-pin'; highlightActivePinField();">
+
+        <div class="numpad">
+          <button onclick="numpadPress(passwordActiveField,'1')">1</button>
+          <button onclick="numpadPress(passwordActiveField,'2')">2</button>
+          <button onclick="numpadPress(passwordActiveField,'3')">3</button>
+          <button onclick="numpadPress(passwordActiveField,'4')">4</button>
+          <button onclick="numpadPress(passwordActiveField,'5')">5</button>
+          <button onclick="numpadPress(passwordActiveField,'6')">6</button>
+          <button onclick="numpadPress(passwordActiveField,'7')">7</button>
+          <button onclick="numpadPress(passwordActiveField,'8')">8</button>
+          <button onclick="numpadPress(passwordActiveField,'9')">9</button>
+          <button class="numpad-ghost" onclick="numpadClear(passwordActiveField)">C</button>
+          <button onclick="numpadPress(passwordActiveField,'0')">0</button>
+          <button class="numpad-ghost" onclick="numpadBackspace(passwordActiveField)">⌫</button>
+        </div>
+
+        <div id="password-result" class="config-test-result"></div>
+      </div>
+
+      <div class="config-footer">
+        <button class="btn-primary" onclick="changeAdminPin()" style="width:100%;">Trocar PIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL DE LOGS -->
+  <div id="logs-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:560px;">
+      <div class="config-header">
+        <h2>Log do sistema</h2>
+        <button class="config-close" onclick="closeLogsPanel()">✕</button>
+      </div>
+
+      <div class="config-body">
+        <div id="logs-content" class="logs-content">Carregando...</div>
+      </div>
+
+      <div class="config-footer">
+        <button class="btn-ghost" onclick="clearLogs()">Limpar log</button>
+        <button class="btn-ghost" onclick="loadLogs()">Atualizar</button>
+        <button class="btn-primary" onclick="downloadLogs()">Baixar log completo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIGURAÇÃO DE CÂMERA -->
+  <div id="camera-config-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:420px;">
+      <div class="config-header">
+        <h2>Configuração de câmera</h2>
+        <button class="config-close" onclick="closeCameraConfig()">✕</button>
+      </div>
+      <div class="config-body">
+        <label class="config-label">Câmera utilizada</label>
+        <select id="cam-cfg-select" onchange="cameraConfigPreview()" style="width:100%; margin-top:6px; padding:12px; font-size:15px; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px;"></select>
+        <div style="position:relative; width:100%; aspect-ratio:4/3; background:#000; border-radius:12px; overflow:hidden; margin-top:12px; border:1px solid var(--line);">
+          <video id="cam-cfg-video" autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+        </div>
+        <div id="cam-cfg-msg" class="config-test-result" style="display:block;"></div>
+      </div>
+      <div class="config-footer">
+        <button class="btn-ghost" onclick="cameraConfigRefresh()">Atualizar lista</button>
+        <button class="btn-primary" onclick="cameraConfigSave()">Usar esta câmera</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENU DO ARMÁRIO (MODO ADMIN) -->
+  <div id="admin-locker-menu-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:340px;">
+      <div class="config-header">
+        <h2 id="admin-menu-title">Armário --</h2>
+        <button class="config-close" onclick="closeAdminLockerMenu()">✕</button>
+      </div>
+      <div class="config-body">
+        <p style="color:var(--ink-dim); font-size:13px; margin-top:0;">
+          Status: <span id="admin-menu-status" class="menu-hub-state">--</span>
+        </p>
+        <div class="menu-hub-list">
+          <button class="menu-hub-item" onclick="adminUnlockOnly()">
+            <span>🔓 Liberar porta</span>
+            <span>›</span>
+          </button>
+          <button class="menu-hub-item" id="admin-menu-details-btn" onclick="adminShowDetails()">
+            <span>📋 Detalhes</span>
+            <span>›</span>
+          </button>
+          <button class="menu-hub-item" id="admin-menu-markfree-btn" onclick="adminMarkFree()">
+            <span>✅ Marcar como livre</span>
+            <span>›</span>
+          </button>
+        </div>
+        <div id="admin-menu-result" class="config-test-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETALHES DO ARMÁRIO (MODO ADMIN) -->
+  <div id="admin-details-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:360px;">
+      <div class="config-header">
+        <h2 id="admin-details-title">Detalhes</h2>
+        <button class="config-close" onclick="closeAdminDetails()">✕</button>
+      </div>
+      <div class="config-body" style="text-align:center;">
+        <img id="admin-details-photo" style="max-width:100%; border-radius:10px; border:1px solid var(--line); margin-bottom:14px;">
+        <div id="admin-details-info" style="text-align:left; font-size:13px; color:var(--ink);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TELA DE PIN DO ADMIN -->
+  <div id="admin-pin-overlay" class="config-overlay">
+    <div class="config-panel" style="max-width:340px; text-align:center;">
+      <div class="config-header">
+        <h2>Modo Admin</h2>
+        <button class="config-close" onclick="closeAdminPinScreen()">✕</button>
+      </div>
+      <p style="color:var(--ink-dim); font-size:13px; margin-top:0;">
+        Digite o PIN para abrir armários sem verificação facial
+      </p>
+      <input id="admin-pin-input" type="password" inputmode="numeric" maxlength="8" readonly
+        placeholder="PIN" onkeydown="if(event.key==='Enter') submitAdminPin();"
+        style="width:100%; text-align:center; font-size:24px; letter-spacing:8px;
+               background:var(--panel); border:1px solid var(--line); border-radius:8px;
+               padding:14px; color:var(--ink); margin:10px 0;">
+      <div class="numpad">
+        <button onclick="numpadPress('admin-pin-input','1')">1</button>
+        <button onclick="numpadPress('admin-pin-input','2')">2</button>
+        <button onclick="numpadPress('admin-pin-input','3')">3</button>
+        <button onclick="numpadPress('admin-pin-input','4')">4</button>
+        <button onclick="numpadPress('admin-pin-input','5')">5</button>
+        <button onclick="numpadPress('admin-pin-input','6')">6</button>
+        <button onclick="numpadPress('admin-pin-input','7')">7</button>
+        <button onclick="numpadPress('admin-pin-input','8')">8</button>
+        <button onclick="numpadPress('admin-pin-input','9')">9</button>
+        <button class="numpad-ghost" onclick="numpadClear('admin-pin-input')">C</button>
+        <button onclick="numpadPress('admin-pin-input','0')">0</button>
+        <button class="numpad-ghost" onclick="numpadBackspace('admin-pin-input')">⌫</button>
+      </div>
+      <div id="admin-pin-error" style="color:var(--red); font-size:12px; min-height:16px;"></div>
+      <div class="config-footer">
+        <button class="btn-primary" onclick="submitAdminPin()" style="width:100%;">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1 -->
+  <section class="screen active" id="screen-select">
+    <h1>Toque no seu armário</h1>
+    <p class="sub">Selecione o número correspondente à sua retirada</p>
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--panel);border:1px solid var(--line)"></i>Livre</span>
+      <span><i style="background:#1d1714;border:1px solid var(--red)"></i>Ocupado</span>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="screen" id="screen-confirm">
+    <div class="confirm-body">
+      <div class="big-num" id="confirm-num">--</div>
+      <p id="confirm-text">Confirmar abertura deste armário?</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" onclick="goTo('screen-select')">Voltar</button>
+      <button class="btn-primary" id="confirm-btn" onclick="goToCamera()">Continuar</button>
+    </div>
+  </section>
+
+  <!-- STEP 2.5 - CADASTRO FACIAL (armário livre) -->
+  <section class="screen" id="screen-register-face">
+    <h1>Cadastro facial</h1>
+    <p class="sub">Posicione o rosto dentro da área marcada</p>
+    <div class="cam-body">
+      <div class="cam-frame">
+        <video id="reg-video" autoplay muted playsinline></video>
+        <canvas id="reg-canvas"></canvas>
+        <div class="cam-oval" id="reg-oval"></div>
+      </div>
+      <div class="cam-status" id="reg-status">Ativando câmera...</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" onclick="cancelCamera('screen-confirm')" style="width:100%;">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- STEP 2.5 - VERIFICAÇÃO FACIAL (armário ocupado) -->
+  <section class="screen" id="screen-verify-face">
+    <h1>Verificação facial</h1>
+    <p class="sub">Olhe para a câmera para confirmar sua identidade</p>
+    <div class="cam-body">
+      <div class="cam-frame">
+        <video id="ver-video" autoplay muted playsinline></video>
+        <canvas id="ver-canvas"></canvas>
+        <div class="cam-oval" id="ver-oval"></div>
+      </div>
+      <div class="cam-status" id="ver-status">Ativando câmera...</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" onclick="cancelCamera('screen-select')" style="width:100%;">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="screen" id="screen-opening">
+    <div class="opening-body">
+      <div class="ring"></div>
+      <h1 style="margin-bottom:6px;">Destravando...</h1>
+      <p class="sub" style="margin:0;">Aguarde um instante</p>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="screen" id="screen-result">
+    <div class="result-body">
+      <div class="icon-circle" id="result-icon">✓</div>
+      <h1 id="result-title">Armário aberto</h1>
+      <p class="sub" id="result-sub">Retire seus itens e feche a porta</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="resetKiosk()">Concluir</button>
+    </div>
+  </section>
+</div>
+
+
+<div id="banners-container" style="position:fixed; top:0; left:0; right:0; z-index:999; display:flex; flex-direction:column;">
+  <div id="mode-banner" class="mode-banner"></div>
+  <div id="door-alert-banner" class="door-alert-banner"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------
+// VERSÃO DEMO: simula a API e a placa em memória, no próprio navegador.
+// Não precisa do Flask nem da placa conectada.
+// Troque este bloco pelas chamadas fetch() reais quando for para produção
+// (veja os comentários "MODO REAL" abaixo).
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// Agora os dados (armários, status, cadastro facial) vivem num banco de
+// dados de verdade (SQLite) no backend Flask — não mais no navegador.
+// Isso resolve o problema de perder o cadastro ao atualizar a página,
+// trocar de tablet, limpar cache, etc.
+//
+// Ajuste o endereço abaixo para onde o backend (app.py) está rodando.
+// ---------------------------------------------------------------------
+const API_BASE = ""; // vazio = mesmo servidor que serviu esta página (Flask no Windows)
+const DEMO_MODE = false; // true = tudo em memória local (sem backend). false = usa o servidor Flask.
+
+let selectedChannel = null;
+let lockers = [];
+let lastActionWasRetrieval = false; // usado só pra escolher a mensagem certa na tela final
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ---------------------------------------------------------------------
+// NARRAÇÃO POR VOZ (Web Speech API — nativo do navegador, funciona
+// offline, sem precisar gravar áudio nem depender de internet)
+// ---------------------------------------------------------------------
+let voiceEnabled = true;
+
+function speak(text){
+  if (!voiceEnabled) return;
+
+  // Prioridade 1: TTS nativo do Android (ponte injetada pelo app —
+  // disponível só quando rodando dentro do app Android, não no
+  // navegador comum). É mais confiável que o speechSynthesis do
+  // WebView, que costuma ficar mudo em muitos aparelhos.
+  if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function'){
+    window.AndroidTTS.speak(text);
+    return;
+  }
+
+  // Prioridade 2: speechSynthesis do navegador (usado quando testando
+  // fora do app Android, ex: Windows/Chrome)
+  try{
+    if ('speechSynthesis' in window && window.speechSynthesis){
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'pt-BR';
+      utter.rate = 1;
+      utter.pitch = 1;
+      window.speechSynthesis.speak(utter);
+    }
+  }catch(e){
+    console.error('Erro ao usar speechSynthesis', e);
+  }
+}
+
+function toggleVoice(){
+  voiceEnabled = !voiceEnabled;
+  if (!voiceEnabled) stopSpeaking();
+  const btn = document.getElementById('voice-toggle');
+  if (btn) btn.textContent = voiceEnabled ? '🔊' : '🔇';
+}
+
+/**
+ * Interrompe qualquer fala em andamento, com segurança — nunca lança
+ * erro mesmo se nenhuma das duas fontes de voz (TTS nativo do Android
+ * ou speechSynthesis do navegador) estiver disponível. Use isso em
+ * vez de chamar window.speechSynthesis.cancel() direto, porque no
+ * WebView do app Android o speechSynthesis pode nem existir — e uma
+ * chamada direta quebraria a função no meio, travando a tela.
+ */
+function stopSpeaking(){
+  try{
+    if (window.AndroidTTS && typeof window.AndroidTTS.stop === 'function'){
+      window.AndroidTTS.stop();
+    }
+  }catch(e){ /* ignora */ }
+  try{
+    if ('speechSynthesis' in window && window.speechSynthesis){
+      window.speechSynthesis.cancel();
+    }
+  }catch(e){ /* ignora */ }
+}
+
+// ---------------------------------------------------------------------
+// MENU HUB — ponto de entrada único (ícone ⚙️ na tela principal)
+// ---------------------------------------------------------------------
+function openMenuHub(){
+  if (adminModeActive){
+    // já autenticado (está em modo admin) — abre o menu direto, sem PIN
+    openMenuHubDirect();
+    return;
+  }
+  // fora do modo admin: pede o PIN antes de mostrar o menu de configuração
+  openAdminPinScreen();
+}
+
+function openMenuHubDirect(){
+  updateMenuHubStates();
+  document.getElementById('menu-hub-overlay').classList.add('active');
+}
+
+function closeMenuHub(){
+  document.getElementById('menu-hub-overlay').classList.remove('active');
+}
+
+function updateMenuHubStates(){
+  const adminEl = document.getElementById('menu-admin-state');
+  adminEl.textContent = adminModeActive ? 'ativado' : 'desativado';
+  adminEl.className = 'menu-hub-state' + (adminModeActive ? ' active' : '');
+
+  const voiceEl = document.getElementById('menu-voice-state');
+  voiceEl.textContent = voiceEnabled ? 'ligado' : 'silenciado';
+  voiceEl.className = 'menu-hub-state' + (voiceEnabled ? '' : ' active');
+
+  // Os atalhos de sistema (Wi-Fi, Configurações, Desinstalar) só
+  // existem dentro do app Android de verdade — escondidos se estiver
+  // testando fora dele (navegador comum, modo demo)
+  const hasSystemBridge = !!(window.AndroidSystem);
+  ['menu-android-wifi-btn', 'menu-android-settings-btn', 'menu-android-uninstall-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = hasSystemBridge ? 'flex' : 'none';
+  });
+}
+
+function menuGoAdmin(){
+  if (adminModeActive){
+    // sair do modo admin é livre, não pede PIN
+    deactivateAdminMode();
+    closeMenuHub();
+  } else {
+    // já estava autenticado pra entrar no menu — ativa direto, sem pedir de novo
+    activateAdminMode();
+    closeMenuHub();
+  }
+}
+
+function menuToggleVoice(){
+  toggleVoice();
+  updateMenuHubStates();
+}
+
+async function menuGoModuleConfig(){
+  closeMenuHub();
+  await openModuleConfig();
+}
+
+async function menuGoSensorConfig(){
+  closeMenuHub();
+  await openSensorConfig();
+}
+
+function menuGoPassword(){
+  closeMenuHub();
+  openPasswordConfig();
+}
+
+function menuGoLogs(){
+  closeMenuHub();
+  openLogsPanel();
+}
+
+let camCfgStream = null;
+
+function menuGoCamera(){
+  closeMenuHub();
+  openCameraConfig();
+}
+
+function camCfgMsg(text, cls){
+  const el = document.getElementById('cam-cfg-msg');
+  el.textContent = text;
+  el.style.color = cls === 'ok' ? 'var(--green)' : (cls === 'fail' ? 'var(--red)' : 'var(--ink-dim)');
+}
+
+function camCfgStop(){
+  if (camCfgStream){ camCfgStream.getTracks().forEach(t => t.stop()); camCfgStream = null; }
+  const v = document.getElementById('cam-cfg-video'); if (v) v.srcObject = null;
+}
+
+async function openCameraConfig(){
+  document.getElementById('camera-config-overlay').classList.add('active');
+  await cameraConfigRefresh();
+}
+
+function closeCameraConfig(){
+  camCfgStop();
+  document.getElementById('camera-config-overlay').classList.remove('active');
+}
+
+async function cameraConfigRefresh(){
+  const sel = document.getElementById('cam-cfg-select');
+  camCfgMsg('Procurando câmeras...');
+  try{
+    // pede permissão uma vez para os nomes das câmeras aparecerem
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmp.getTracks().forEach(t => t.stop());
+  }catch(e){
+    camCfgMsg('Não foi possível acessar a câmera: ' + (e.message || e.name), 'fail');
+  }
+  let devs = [];
+  try{ devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput'); }catch(e){}
+  let saved = null;
+  try{ saved = localStorage.getItem('totem_camera_id'); }catch(e){}
+  sel.innerHTML = '';
+  const auto = document.createElement('option');
+  auto.value = ''; auto.textContent = 'Automática (padrão do sistema)';
+  sel.appendChild(auto);
+  devs.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = d.deviceId; o.textContent = d.label || ('Câmera ' + (i + 1));
+    sel.appendChild(o);
+  });
+  sel.value = (saved && devs.some(d => d.deviceId === saved)) ? saved : '';
+  if (!devs.length) camCfgMsg('Nenhuma câmera encontrada. Confira a conexão USB.', 'fail');
+  else camCfgMsg(devs.length + ' câmera(s) encontrada(s). Escolha e confira a imagem.');
+  await cameraConfigPreview();
+}
+
+async function cameraConfigPreview(){
+  camCfgStop();
+  const id = document.getElementById('cam-cfg-select').value;
+  const v = document.getElementById('cam-cfg-video');
+  try{
+    camCfgStream = await navigator.mediaDevices.getUserMedia({
+      video: id ? { deviceId: { exact: id } } : true, audio: false });
+    v.srcObject = camCfgStream;
+    await v.play().catch(() => {});
+  }catch(e){
+    camCfgMsg('Falha ao abrir esta câmera: ' + (e.message || e.name), 'fail');
+  }
+}
+
+function cameraConfigSave(){
+  const id = document.getElementById('cam-cfg-select').value;
+  try{
+    if (id) localStorage.setItem('totem_camera_id', id);
+    else localStorage.removeItem('totem_camera_id');
+    camCfgMsg(id ? 'Câmera salva. Será usada no reconhecimento facial.' : 'Modo automático ativado.', 'ok');
+  }catch(e){
+    camCfgMsg('Não foi possível salvar: ' + e.message, 'fail');
+  }
+}
+
+function menuGoUninstall(){
+  if (!confirm('Isso vai liberar e abrir a tela de desinstalação do Android para o Totem Armários. Confirma?')){
+    return;
+  }
+  // No modo quiosque avançado (Device Owner), a desinstalação vem
+  // bloqueada por padrão — libera primeiro, senão a tela de
+  // desinstalar abre mas o botão não funciona
+  if (window.AndroidSystem.allowUninstall) window.AndroidSystem.allowUninstall();
+  window.AndroidSystem.openAppSettings();
+}
+
+// ---------------------------------------------------------------------
+// CONFIGURAÇÃO DE MÓDULO (porta, endereço, baud rate, tempos)
+// ---------------------------------------------------------------------
+async function openModuleConfig(){
+  document.getElementById('module-config-overlay').classList.add('active');
+  document.getElementById('config-test-result').textContent = '';
+  document.getElementById('config-test-result').className = 'config-test-result';
+  await loadPorts();
+  await loadConfigIntoForm();
+}
+
+function closeModuleConfig(){
+  document.getElementById('module-config-overlay').classList.remove('active');
+}
+
+// ---------------------------------------------------------------------
+// CONFIGURAÇÃO DE SENSOR (fim de curso)
+// ---------------------------------------------------------------------
+async function openSensorConfig(){
+  document.getElementById('sensor-config-overlay').classList.add('active');
+  document.getElementById('sensor-config-result').textContent = '';
+  document.getElementById('sensor-config-result').className = 'config-test-result';
+  await loadConfigIntoForm();
+}
+
+function closeSensorConfig(){
+  document.getElementById('sensor-config-overlay').classList.remove('active');
+}
+
+// ---------------------------------------------------------------------
+// ALTERAÇÃO DE SENHA (PIN do admin)
+// ---------------------------------------------------------------------
+function openPasswordConfig(){
+  document.getElementById('password-overlay').classList.add('active');
+  document.getElementById('cfg-current-pin').value = '';
+  document.getElementById('cfg-new-pin').value = '';
+  document.getElementById('password-result').textContent = '';
+  document.getElementById('password-result').className = 'config-test-result';
+  passwordActiveField = 'cfg-current-pin';
+  highlightActivePinField();
+}
+
+function closePasswordConfig(){
+  document.getElementById('password-overlay').classList.remove('active');
+}
+
+// ---------------------------------------------------------------------
+// TECLADO NUMÉRICO VIRTUAL — usado na tela de PIN do admin e na troca
+// de senha, já que o dispositivo é um monitor touch (sem teclado físico
+// sempre disponível).
+// ---------------------------------------------------------------------
+let passwordActiveField = 'cfg-current-pin'; // qual campo recebe os toques do teclado, no painel de senha
+
+function numpadPress(targetId, digit){
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const maxLen = el.getAttribute('maxlength');
+  if (maxLen && el.value.length >= parseInt(maxLen, 10)) return;
+  el.value += digit;
+}
+
+function numpadBackspace(targetId){
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.value = el.value.slice(0, -1);
+}
+
+function numpadClear(targetId){
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.value = '';
+}
+
+function highlightActivePinField(){
+  document.getElementById('cfg-current-pin').classList.remove('pin-field-active');
+  document.getElementById('cfg-new-pin').classList.remove('pin-field-active');
+  const active = document.getElementById(passwordActiveField);
+  if (active) active.classList.add('pin-field-active');
+}
+
+async function loadPorts(){
+  const select = document.getElementById('cfg-port');
+  const previousValue = select.value;
+  select.innerHTML = '<option>Carregando...</option>';
+  try{
+    const res = await fetch(`${API_BASE}/api/board/ports`);
+    const data = await res.json();
+    select.innerHTML = '';
+
+    if (data.success && data.ports.length > 0){
+      data.ports.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.device;
+        opt.textContent = `${p.device} — ${p.description}`;
+        select.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'Nenhuma porta detectada';
+      select.appendChild(opt);
+    }
+
+    // Sempre permite digitar/manter um valor manual, mesmo se não
+    // apareceu na lista automática (ex: porta ainda não conectada)
+    const manualOpt = document.createElement('option');
+    manualOpt.value = '__manual__';
+    manualOpt.textContent = 'Digitar manualmente...';
+    select.appendChild(manualOpt);
+
+    if (previousValue && [...select.options].some(o => o.value === previousValue)){
+      select.value = previousValue;
+    }
+  }catch(e){
+    select.innerHTML = '<option value="">Erro ao listar portas</option>';
+  }
+}
+
+function toggleSensorFields(){
+  const master = document.getElementById('cfg-sensor-master').checked;
+  document.getElementById('sensor-config-fields').style.display = master ? 'block' : 'none';
+}
+
+async function loadConfigIntoForm(){
+  try{
+    const res = await fetch(`${API_BASE}/api/board/config`);
+    const data = await res.json();
+    if (!data.success) return;
+
+    const cfg = data.config;
+    const select = document.getElementById('cfg-port');
+
+    if ([...select.options].some(o => o.value === cfg.serial_port)){
+      select.value = cfg.serial_port;
+    } else {
+      // porta salva não está na lista detectada agora -> adiciona como opção
+      const opt = document.createElement('option');
+      opt.value = cfg.serial_port;
+      opt.textContent = `${cfg.serial_port} (salva)`;
+      select.insertBefore(opt, select.firstChild);
+      select.value = cfg.serial_port;
+    }
+
+    document.getElementById('cfg-address').value = cfg.board_address;
+    document.getElementById('cfg-baudrate').value = String(cfg.baudrate);
+    document.getElementById('cfg-simulate').checked = !!cfg.simulate;
+    document.getElementById('cfg-response-timeout').value = cfg.response_timeout_ms;
+    document.getElementById('cfg-idle-silence').value = cfg.idle_silence_ms;
+    document.getElementById('cfg-face-threshold').value = cfg.face_match_threshold;
+    document.getElementById('cfg-door-open-signal').value = cfg.door_open_signal;
+    document.getElementById('cfg-sensor-poll').value = cfg.sensor_poll_interval_seconds;
+    document.getElementById('cfg-notify-open').checked = !!cfg.sensor_notify_open;
+    document.getElementById('cfg-notify-left-open').checked = !!cfg.sensor_notify_left_open;
+    document.getElementById('cfg-door-grace').value = cfg.door_close_grace_seconds;
+    document.getElementById('cfg-notify-violation').checked = !!cfg.sensor_notify_violation;
+    document.getElementById('cfg-violation-window').value = cfg.violation_window_seconds;
+
+    // Interruptor mestre: fica marcado (e revela os campos) se
+    // qualquer uma das 3 notificações já estiver ativa
+    const anySensorFeatureActive = cfg.sensor_notify_open || cfg.sensor_notify_left_open || cfg.sensor_notify_violation;
+    document.getElementById('cfg-sensor-master').checked = !!anySensorFeatureActive;
+    toggleSensorFields();
+  }catch(e){
+    console.error('Erro ao carregar configuração', e);
+  }
+}
+
+function getFormPort(){
+  const select = document.getElementById('cfg-port');
+  if (select.value === '__manual__'){
+    return prompt('Digite o nome da porta (ex: COM7)', '') || '';
+  }
+  return select.value;
+}
+
+async function scanAllPorts(){
+  const resultEl = document.getElementById('config-test-result');
+  const btn = document.getElementById('cfg-scan-btn');
+  const baudrate = parseInt(document.getElementById('cfg-baudrate').value, 10);
+
+  resultEl.className = 'config-test-result loading';
+  resultEl.textContent = 'Escaneando todas as portas seriais detectadas (isso pode levar um tempo)...';
+  btn.disabled = true;
+
+  try{
+    const res = await fetch(`${API_BASE}/api/board/scan`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ baudrate })
+    });
+    const data = await res.json();
+
+    if (data.found){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent =
+        `✓ Placa encontrada!\nPorta: ${data.found.port}\nEndereço: ${data.found.address}\n` +
+        `ID: ${data.found.mcu_id}\n\nOs campos foram preenchidos — confira e toque em Salvar.`;
+
+      // Preenche os campos automaticamente com o que foi encontrado
+      const select = document.getElementById('cfg-port');
+      if (![...select.options].some(o => o.value === data.found.port)){
+        const opt = document.createElement('option');
+        opt.value = data.found.port;
+        opt.textContent = `${data.found.port} (encontrada)`;
+        select.insertBefore(opt, select.firstChild);
+      }
+      select.value = data.found.port;
+      document.getElementById('cfg-address').value = data.found.address;
+    } else if (data.error){
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ ${data.error}`;
+    } else {
+      const testedList = (data.ports_tested || []).join(', ') || '(nenhuma)';
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent =
+        `✕ Nenhuma placa respondeu.\nPortas testadas: ${testedList}\n` +
+        `Endereços testados: 1 a 8.\n\nVerifique alimentação da placa e a fiação A+/B-.`;
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao escanear.';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function testConnection(){
+  const resultEl = document.getElementById('config-test-result');
+  const btn = document.getElementById('cfg-test-btn');
+  const port = getFormPort();
+  const address = parseInt(document.getElementById('cfg-address').value, 10);
+  const baudrate = parseInt(document.getElementById('cfg-baudrate').value, 10);
+
+  if (!port){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Informe uma porta serial válida.';
+    return;
+  }
+
+  resultEl.className = 'config-test-result loading';
+  resultEl.textContent = 'Testando conexão com a placa...';
+  btn.disabled = true;
+
+  try{
+    const res = await fetch(`${API_BASE}/api/board/test`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ serial_port: port, board_address: address, baudrate })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent =
+        `✓ Comunicação OK\nID da placa: ${data.mcu_id}\n` +
+        `Canais com sinal conectado: ` +
+        Object.entries(data.signal_status)
+          .filter(([, v]) => v === 'connected')
+          .map(([ch]) => ch)
+          .join(', ') || '(nenhum)';
+    } else {
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ Falha: ${data.error}`;
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao tentar testar a conexão.';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function saveConfig(){
+  const port = getFormPort();
+  const address = parseInt(document.getElementById('cfg-address').value, 10);
+  const baudrate = parseInt(document.getElementById('cfg-baudrate').value, 10);
+  const simulate = document.getElementById('cfg-simulate').checked;
+  const responseTimeoutMs = parseInt(document.getElementById('cfg-response-timeout').value, 10);
+  const idleSilenceMs = parseInt(document.getElementById('cfg-idle-silence').value, 10);
+  const faceMatchThreshold = parseFloat(document.getElementById('cfg-face-threshold').value);
+  const sensorMasterEnabled = document.getElementById('cfg-sensor-master').checked;
+  const sensorNotifyOpen = sensorMasterEnabled && document.getElementById('cfg-notify-open').checked;
+  const doorOpenSignal = document.getElementById('cfg-door-open-signal').value;
+  const sensorPollSeconds = parseInt(document.getElementById('cfg-sensor-poll').value, 10);
+  const sensorNotifyLeftOpen = sensorMasterEnabled && document.getElementById('cfg-notify-left-open').checked;
+  const doorGraceSeconds = parseInt(document.getElementById('cfg-door-grace').value, 10);
+  const sensorNotifyViolation = sensorMasterEnabled && document.getElementById('cfg-notify-violation').checked;
+  const violationWindowSeconds = parseInt(document.getElementById('cfg-violation-window').value, 10);
+
+  // Escreve o resultado no painel que estiver aberto no momento
+  const sensorPanelOpen = document.getElementById('sensor-config-overlay').classList.contains('active');
+  const resultEl = document.getElementById(sensorPanelOpen ? 'sensor-config-result' : 'config-test-result');
+
+  if (!port){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Informe uma porta serial válida.';
+    return;
+  }
+  if (!address || address < 1 || address > 32){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Endereço deve ser entre 1 e 32.';
+    return;
+  }
+  if (!responseTimeoutMs || responseTimeoutMs < 100 || responseTimeoutMs > 10000){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Timeout total deve ser entre 100 e 10000 ms.';
+    return;
+  }
+  if (!idleSilenceMs || idleSilenceMs < 20 || idleSilenceMs > 3000){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Silêncio de fim de resposta deve ser entre 20 e 3000 ms.';
+    return;
+  }
+  if (!faceMatchThreshold || faceMatchThreshold < 0.2 || faceMatchThreshold > 1.5){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Limite de reconhecimento facial deve ser um número maior que 0.';
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/board/config`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        serial_port: port, board_address: address, baudrate, simulate,
+        response_timeout_ms: responseTimeoutMs, idle_silence_ms: idleSilenceMs,
+        face_match_threshold: faceMatchThreshold,
+        door_open_signal: doorOpenSignal, sensor_poll_interval_seconds: sensorPollSeconds,
+        sensor_notify_open: sensorNotifyOpen,
+        sensor_notify_left_open: sensorNotifyLeftOpen, door_close_grace_seconds: doorGraceSeconds,
+        sensor_notify_violation: sensorNotifyViolation, violation_window_seconds: violationWindowSeconds
+      })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent = simulate
+        ? '✓ Configuração salva em MODO SIMULADO — a placa física NÃO será acionada.'
+        : '✓ Configuração salva em MODO PRODUÇÃO — comandos serão enviados de verdade para a placa.';
+      updateModeBanner();
+      setTimeout(sensorPanelOpen ? closeSensorConfig : closeModuleConfig, 1400);
+    } else {
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ ${data.error}`;
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao salvar.';
+  }
+}
+
+async function changeAdminPin(){
+  const currentPin = document.getElementById('cfg-current-pin').value.trim();
+  const newPin = document.getElementById('cfg-new-pin').value.trim();
+  const resultEl = document.getElementById('password-result');
+
+  if (!currentPin || !newPin){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = 'Preencha o PIN atual e o novo PIN.';
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/admin/pin`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ current_pin: currentPin, new_pin: newPin })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent = '✓ PIN alterado com sucesso.';
+      document.getElementById('cfg-current-pin').value = '';
+      document.getElementById('cfg-new-pin').value = '';
+      adminPinValue = null; // força pedir o PIN novo da próxima vez
+      setTimeout(closePasswordConfig, 1200);
+    } else {
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ ${data.error}`;
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao trocar PIN.';
+  }
+}
+
+// ---------------------------------------------------------------------
+// PAINEL DE LOGS
+// ---------------------------------------------------------------------
+async function openLogsPanel(){
+  document.getElementById('logs-overlay').classList.add('active');
+  await loadLogs();
+}
+
+function closeLogsPanel(){
+  document.getElementById('logs-overlay').classList.remove('active');
+}
+
+async function loadLogs(){
+  const el = document.getElementById('logs-content');
+  el.textContent = 'Carregando...';
+  try{
+    const res = await fetch(`${API_BASE}/api/logs?lines=300`);
+    const data = await res.json();
+    if (data.success && data.lines.length > 0){
+      el.textContent = data.lines.join('');
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.textContent = '(nenhum log registrado ainda)';
+    }
+  }catch(e){
+    el.textContent = 'Erro ao carregar log.';
+  }
+}
+
+function downloadLogs(){
+  window.open(`${API_BASE}/api/logs/download`, '_blank');
+}
+
+async function clearLogs(){
+  if (!confirm('Limpar todo o histórico de log?')) return;
+  await fetch(`${API_BASE}/api/logs/clear`, { method: 'POST' });
+  await loadLogs();
+}
+
+// ---------------------------------------------------------------------
+// MODO ADMIN (PIN + abertura direta na grade principal, sem rosto)
+// ---------------------------------------------------------------------
+let adminPinValue = null;   // guardado em memória só durante a sessão
+let adminModeActive = false; // quando true, os botões da grade principal abrem direto
+
+function openAdminPinScreen(){
+  document.getElementById('admin-pin-input').value = '';
+  document.getElementById('admin-pin-error').textContent = '';
+  document.getElementById('admin-pin-overlay').classList.add('active');
+}
+
+function closeAdminPinScreen(){
+  document.getElementById('admin-pin-overlay').classList.remove('active');
+}
+
+async function submitAdminPin(){
+  const pin = document.getElementById('admin-pin-input').value.trim();
+  const errorEl = document.getElementById('admin-pin-error');
+
+  if (!pin){
+    errorEl.textContent = 'Digite o PIN.';
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/admin/verify-pin`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      adminPinValue = pin;
+      closeAdminPinScreen();
+      // O PIN só serve pra entrar no menu de configuração (quando fora
+      // do modo admin). Ativar o modo admin é uma escolha separada,
+      // feita depois dentro do menu, sem pedir o PIN de novo. Sair do
+      // modo admin também não pede PIN.
+      openMenuHubDirect();
+    } else {
+      errorEl.textContent = 'PIN incorreto.';
+    }
+  }catch(e){
+    errorEl.textContent = 'Erro de rede.';
+  }
+}
+
+function activateAdminMode(){
+  adminModeActive = true;
+  updateAdminModeBanner();
+  goTo('screen-select');
+  renderGrid(); // re-renderiza a grade já no modo admin
+  speak('Modo administrador ativado. Toque em qualquer armário para abrir direto.');
+}
+
+function deactivateAdminMode(){
+  adminModeActive = false;
+  adminPinValue = null;
+  updateAdminModeBanner();
+  renderGrid();
+}
+
+function updateAdminModeBanner(){
+  // Sem faixa no topo — o modo admin já fica visível pela borda âmbar
+  // nos armários da grade (veja renderGrid). Só garante que o
+  // espaçamento do topo não sobrou reservado à toa.
+  adjustKioskPadding();
+}
+
+let adminMenuChannel = null;
+
+function openAdminLockerMenu(channel){
+  adminMenuChannel = channel;
+  const locker = lockers.find(l => l.channel === channel);
+
+  document.getElementById('admin-menu-title').textContent = `Armário ${String(channel).padStart(2,'0')}`;
+  document.getElementById('admin-menu-status').textContent = locker && locker.occupied ? 'Ocupado' : 'Livre';
+  document.getElementById('admin-menu-status').className = 'menu-hub-state' + (locker && locker.occupied ? ' active' : '');
+
+  // "Detalhes" e "Marcar como livre" só aparecem se o armário
+  // estiver ocupado (não faz sentido pra um armário já livre)
+  const isOccupied = !!(locker && locker.occupied);
+  document.getElementById('admin-menu-details-btn').style.display = isOccupied ? 'flex' : 'none';
+  document.getElementById('admin-menu-markfree-btn').style.display = isOccupied ? 'flex' : 'none';
+
+  document.getElementById('admin-menu-result').textContent = '';
+  document.getElementById('admin-menu-result').className = 'config-test-result';
+  document.getElementById('admin-locker-menu-overlay').classList.add('active');
+}
+
+function closeAdminLockerMenu(){
+  document.getElementById('admin-locker-menu-overlay').classList.remove('active');
+  adminMenuChannel = null;
+}
+
+async function adminUnlockOnly(){
+  const channel = adminMenuChannel;
+  if (!channel) return;
+  const resultEl = document.getElementById('admin-menu-result');
+  resultEl.className = 'config-test-result';
+  resultEl.textContent = 'Liberando porta...';
+
+  try{
+    const res = await fetch(`${API_BASE}/api/admin/lockers/${channel}/unlock-only`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pin: adminPinValue })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent = '✓ Porta liberada (status do armário não foi alterado).';
+      speak(`Armário ${channel} liberado pelo modo administrador.`);
+    } else {
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ ${data.error || 'Não foi possível liberar a porta'}`;
+      if (data.door_sensor_confirmed === false){
+        speak(`Atenção. O armário ${channel} não abriu e pode estar com defeito.`);
+      }
+      if (res.status === 401){
+        deactivateAdminMode();
+        closeAdminLockerMenu();
+        alert('PIN inválido — modo administrador desativado. Ative de novo com o PIN atual.');
+      }
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao liberar a porta.';
+  }
+}
+
+async function adminMarkFree(){
+  const channel = adminMenuChannel;
+  if (!channel) return;
+
+  if (!confirm(`Confirma que o armário ${channel} está vazio e pode ser liberado para outra pessoa usar?`)){
+    return;
+  }
+
+  const resultEl = document.getElementById('admin-menu-result');
+  resultEl.className = 'config-test-result';
+  resultEl.textContent = 'Atualizando status...';
+
+  try{
+    const res = await fetch(`${API_BASE}/api/admin/lockers/${channel}/mark-free`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pin: adminPinValue })
+    });
+    const data = await res.json();
+
+    if (data.success){
+      resultEl.className = 'config-test-result ok';
+      resultEl.textContent = '✓ Armário marcado como livre.';
+      speak(`Armário ${channel} marcado como livre.`);
+      await loadLockers(); // atualiza a grade principal
+      setTimeout(closeAdminLockerMenu, 900);
+    } else {
+      resultEl.className = 'config-test-result fail';
+      resultEl.textContent = `✕ ${data.error || 'Não foi possível atualizar o status'}`;
+      if (res.status === 401){
+        deactivateAdminMode();
+        closeAdminLockerMenu();
+        alert('PIN inválido — modo administrador desativado. Ative de novo com o PIN atual.');
+      }
+    }
+  }catch(e){
+    resultEl.className = 'config-test-result fail';
+    resultEl.textContent = '✕ Erro de rede ao atualizar o status.';
+  }
+}
+
+async function adminShowDetails(){
+  const channel = adminMenuChannel;
+  if (!channel) return;
+
+  try{
+    const res = await fetch(`${API_BASE}/api/admin/lockers/${channel}/details`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pin: adminPinValue })
+    });
+    const data = await res.json();
+
+    if (!data.success){
+      if (res.status === 401){
+        deactivateAdminMode();
+        closeAdminLockerMenu();
+        alert('PIN inválido — modo administrador desativado.');
+        return;
+      }
+      alert(data.error || 'Não foi possível carregar os detalhes.');
+      return;
+    }
+
+    const d = data.details;
+    document.getElementById('admin-details-title').textContent = `Detalhes — Armário ${String(channel).padStart(2,'0')}`;
+    const photoEl = document.getElementById('admin-details-photo');
+    if (d.photo){
+      photoEl.src = d.photo;
+      photoEl.style.display = 'block';
+    } else {
+      photoEl.style.display = 'none';
+    }
+
+    let whenText = 'Data não registrada';
+    if (d.occupied_at){
+      try{
+        const dt = new Date(d.occupied_at);
+        whenText = dt.toLocaleString('pt-BR');
+      }catch(e){ whenText = d.occupied_at; }
+    }
+    document.getElementById('admin-details-info').innerHTML =
+      `<p><strong>Status:</strong> ${d.occupied ? 'Ocupado' : 'Livre'}</p>` +
+      `<p><strong>Cadastrado em:</strong> ${whenText}</p>`;
+
+    document.getElementById('admin-details-overlay').classList.add('active');
+  }catch(e){
+    alert('Erro de rede ao carregar os detalhes.');
+  }
+}
+
+function closeAdminDetails(){
+  document.getElementById('admin-details-overlay').classList.remove('active');
+}
+
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('pt-BR');
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ---- "banco de dados" simulado -----------------------------------
+// Cada locker ocupado guarda um "faceDescriptor" (vetor numérico que
+// representa o rosto da pessoa que guardou o item ali).
+//
+// PERSISTÊNCIA: os cadastros ficam salvos em localStorage, então
+// sobrevivem a recarregar a página, fechar o Chrome, etc. Só somem se
+// o usuário limpar os dados do navegador ou você chamar resetAllDemoData().
+const STORAGE_KEY = 'totem_lockers_v1';
+
+function saveLockers(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lockers));
+  }catch(e){
+    console.error('Não foi possível salvar no localStorage', e);
+  }
+}
+
+function seedDemoLockers(){
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved){
+    try{
+      lockers = JSON.parse(saved);
+      return;
+    }catch(e){
+      console.error('Dados salvos corrompidos, recriando do zero', e);
+    }
+  }
+
+  const occupiedOnes = [3, 7, 12, 18, 22]; // ocupados sem foto real cadastrada (demo)
+  lockers = Array.from({length: 25}, (_, i) => {
+    const channel = i + 1;
+    return {
+      channel,
+      label: `Armário ${channel}`,
+      occupied: occupiedOnes.includes(channel) ? 1 : 0,
+      user_ref: occupiedOnes.includes(channel) ? 'demo' : null,
+      faceDescriptor: null // preenchido de verdade quando alguém cadastra pela câmera
+    };
+  });
+  saveLockers();
+}
+
+// Útil pra zerar tudo durante testes: abra o console do Chrome e rode
+// resetAllDemoData()
+function resetAllDemoData(){
+  localStorage.removeItem(STORAGE_KEY);
+  seedDemoLockers();
+  renderGrid();
+  console.log('Dados do demo zerados.');
+}
+
+// ---------------------------------------------------------------------
+// Indicador de modo (simulado vs produção) — reflete o que está
+// realmente configurado no banco, não um valor fixo no HTML.
+// ---------------------------------------------------------------------
+function adjustKioskPadding(){
+  const container = document.getElementById('banners-container');
+  const kiosk = document.getElementById('kiosk');
+  if (!container || !kiosk) return;
+  const h = container.offsetHeight;
+  kiosk.style.paddingTop = (h + 24) + 'px';
+}
+
+async function updateModeBanner(){
+  const banner = document.getElementById('mode-banner');
+  try{
+    const res = await fetch(`${API_BASE}/api/board/config`);
+    const data = await res.json();
+    if (!data.success) return;
+
+    if (data.config.simulate){
+      // Só avisa quando está FORA do padrão esperado (simulado). Em
+      // modo produção não precisa de faixa — é o estado normal.
+      banner.className = 'mode-banner show simulated';
+      banner.textContent = 'MODO SIMULADO — a placa física NÃO será acionada (configure em ⚙️)';
+    } else {
+      banner.className = 'mode-banner';
+    }
+  }catch(e){
+    // sem conexão com o backend ainda; não mostra nada
+    banner.className = 'mode-banner';
+  }
+  adjustKioskPadding();
+}
+
+// ---------------------------------------------------------------------
+// ALERTAS DE PORTA — sensor de fim de curso não confirmou abertura,
+// ou porta ficou aberta além do tempo de tolerância configurado.
+// ---------------------------------------------------------------------
+let announcedAlertIds = new Set(); // evita repetir o mesmo aviso de voz toda hora
+
+async function checkDoorAlerts(){
+  const banner = document.getElementById('door-alert-banner');
+
+  try{
+    const res = await fetch(`${API_BASE}/api/door-alerts`);
+    const data = await res.json();
+    if (!data.success) return;
+
+    const alerts = data.alerts || [];
+
+    if (alerts.length === 0){
+      banner.className = 'door-alert-banner';
+      adjustKioskPadding();
+      return;
+    }
+
+    const summary = alerts
+      .map(a => `Armário ${a.channel}`)
+      .join(', ');
+    banner.textContent = `⚠ ATENÇÃO: ${summary} — toque aqui para ver detalhes`;
+    banner.className = 'door-alert-banner show';
+    adjustKioskPadding();
+    banner.onclick = () => openDoorAlertsDetail(alerts);
+
+    // Avisa por voz só os alertas que ainda não foram anunciados nesta sessão.
+    // Alertas do tipo "defect" (porta não abriu) já são avisados na hora,
+    // direto na tela de resultado — não repete aqui pra não falar duas vezes.
+    const newOnes = alerts.filter(a => !announcedAlertIds.has(a.id) && a.kind !== 'defect');
+
+    const leftOpenOnes = newOnes.filter(a => a.kind === 'left_open');
+    const violationOnes = newOnes.filter(a => a.kind === 'violation');
+
+    if (leftOpenOnes.length > 0){
+      const channels = leftOpenOnes.map(a => a.channel).join(', ');
+      speak(`Atenção. O armário ${channels} está aberto há muito tempo. Por favor, feche a porta.`);
+    }
+    if (violationOnes.length > 0){
+      const channels = violationOnes.map(a => a.channel).join(', ');
+      speak(`Alerta de segurança. O armário ${channels} foi aberto sem autorização.`);
+    }
+    newOnes.forEach(a => announcedAlertIds.add(a.id));
+    // Marca os "defect" como já anunciados também, só pra não reprocessar
+    alerts.filter(a => a.kind === 'defect').forEach(a => announcedAlertIds.add(a.id));
+  }catch(e){
+    // sem conexão; não altera o banner
+  }
+}
+
+function openDoorAlertsDetail(alerts){
+  const lines = alerts.map(a =>
+    `Armário ${a.channel}: ${a.message}`
+  ).join('\n\n');
+  alert(`Alertas ativos:\n\n${lines}\n\nPeça para um responsável verificar essas portas.`);
+}
+
+async function loadLockers(){
+  if (DEMO_MODE){
+    if (lockers.length === 0) seedDemoLockers();
+    document.getElementById('conn-dot').style.background = 'var(--green)';
+    document.getElementById('conn-text').textContent = 'sistema online (demo local)';
+    renderGrid();
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/lockers`);
+    const data = await res.json();
+    // normaliza nomes de campo (backend usa occupied 0/1, user_ref, face_descriptor)
+    lockers = data.map(l => ({
+      channel: l.channel,
+      label: l.label,
+      occupied: l.occupied,
+      user_ref: l.user_ref,
+      hasFace: !!l.face_descriptor
+    }));
+    document.getElementById('conn-dot').style.background = 'var(--green)';
+    document.getElementById('conn-text').textContent = 'sistema online (servidor)';
+  }catch(e){
+    document.getElementById('conn-dot').style.background = 'var(--red)';
+    document.getElementById('conn-text').textContent = 'sem conexão com o servidor';
+  }
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  lockers.forEach(l => {
+    const cell = document.createElement('div');
+    cell.className = 'cell ' + (l.occupied ? 'occupied' : 'free') + (adminModeActive ? ' admin-mode' : '');
+    cell.setAttribute('data-channel', l.channel);
+    cell.innerHTML = `<div class="num">${String(l.channel).padStart(2,'0')}</div>
+                       <div class="tag">${l.occupied ? 'ocupado' : 'livre'}</div>`;
+    cell.onclick = () => selectLocker(l.channel);
+    grid.appendChild(cell);
+  });
+}
+
+function selectLocker(channel){
+  if (adminModeActive){
+    openAdminLockerMenu(channel);
+    return;
+  }
+
+  selectedChannel = channel;
+  const locker = lockers.find(l => l.channel === channel);
+  document.getElementById('confirm-num').textContent = String(channel).padStart(2,'0');
+
+  if (locker.occupied){
+    document.getElementById('confirm-text').textContent =
+      'Este armário está ocupado. Para retirar, vamos confirmar seu rosto.';
+    speak(`Armário ${channel} ocupado. Para retirar seu item, vamos confirmar sua identidade pelo rosto.`);
+  } else {
+    document.getElementById('confirm-text').textContent =
+      'Este armário está livre. Vamos cadastrar seu rosto antes de guardar o item.';
+    speak(`Armário ${channel} livre. Vamos cadastrar seu rosto antes de guardar o item.`);
+  }
+
+  goTo('screen-confirm');
+}
+
+function goToCamera(){
+  const locker = lockers.find(l => l.channel === selectedChannel);
+  lastActionWasRetrieval = !!locker.occupied;
+
+  // Se o app Android disponibilizou a ponte nativa (CameraX + ML Kit +
+  // TensorFlow Lite), usa ela — é bem mais rápida que a versão que
+  // roda dentro do WebView (face-api.js). O resultado volta pela
+  // função onNativeCaptureResult(), chamada pelo MainActivity depois
+  // que a tela nativa terminar.
+  if (window.AndroidFaceCapture && typeof window.AndroidFaceCapture.startCapture === 'function'){
+    goTo('screen-opening');
+    speak(locker.occupied
+      ? 'Abrindo a câmera para verificar sua identidade.'
+      : 'Abrindo a câmera para cadastrar seu rosto.');
+    window.AndroidFaceCapture.startCapture(locker.occupied ? 'verify' : 'register', selectedChannel);
+    return;
+  }
+
+  // Modo antigo (WebView + face-api.js) — usado como alternativa se a
+  // ponte nativa não estiver disponível (ex: testando no navegador
+  // comum, fora do app Android)
+  if (locker.occupied){
+    goTo('screen-verify-face');
+    document.getElementById('ver-status').textContent = 'Ativando câmera...';
+    speak('Olhe para a câmera e posicione seu rosto dentro do círculo.');
+    startCamera('ver-video', 'ver-status').then((ok) => {
+      if (!ok) return;
+      document.getElementById('ver-status').textContent = 'Carregando modelo de reconhecimento...';
+      runFaceLoop('ver-video', 'ver-canvas', 'ver-oval', 'ver-status', captureVerify);
+    });
+  } else {
+    goTo('screen-register-face');
+    document.getElementById('reg-status').textContent = 'Ativando câmera...';
+    speak('Posicione seu rosto dentro do círculo para cadastrar.');
+    startCamera('reg-video', 'reg-status').then((ok) => {
+      if (!ok) return;
+      document.getElementById('reg-status').textContent = 'Carregando modelo de reconhecimento...';
+      runFaceLoop('reg-video', 'reg-canvas', 'reg-oval', 'reg-status', captureRegister);
+    });
+  }
+}
+
+/**
+ * Chamada pelo MainActivity (Kotlin) via evaluateJavascript, depois
+ * que a tela nativa de captura facial termina — seja com sucesso,
+ * erro, ou cancelamento pelo usuário.
+ */
+function onNativeCaptureResult(success, errorMsg, doorConfirmedStr){
+  loadLockers(); // sempre atualiza a grade com o estado real, mesmo em cancelamento
+
+  if (errorMsg === '__CANCELLED__'){
+    goTo(lastActionWasRetrieval ? 'screen-select' : 'screen-confirm');
+    return;
+  }
+  const doorConfirmed = doorConfirmedStr === 'true' ? true : (doorConfirmedStr === 'false' ? false : null);
+  showResult(success, success ? null : errorMsg, doorConfirmed);
+}
+
+// =====================================================================
+// RECONHECIMENTO FACIAL (face-api.js — roda 100% no navegador/tablet)
+// =====================================================================
+// Modelos carregados de um CDN público na primeira vez que a câmera abre.
+// Depois disso, ficam em cache do navegador.
+const FACE_MODELS_URL = "/static/models";
+
+// Distância máxima entre dois rostos para considerar "é a mesma pessoa".
+// Menor = mais rigoroso (risco de falso negativo). Maior = mais tolerante
+// (risco de falso positivo). 0.5–0.55 é um valor de partida razoável.
+const FACE_MATCH_THRESHOLD = 0.45;
+
+let modelsLoaded = false;
+let activeStream = null;
+let faceLoopHandle = null;
+let faceCurrentlyDetected = false; // true/false vindo só da checagem leve do loop
+let currentFaceLoopStop = null; // função pra sinalizar ao loop leve que deve parar
+
+async function ensureModelsLoaded(statusElId){
+  if (modelsLoaded) return;
+  const statusEl = document.getElementById(statusElId);
+
+  try{
+    // Deixa o TensorFlow.js escolher o backend automaticamente
+    // (normalmente WebGL, que é bem mais rápido; cai pra CPU sozinho
+    // se WebGL não estiver disponível). Agora que o carregamento e o
+    // loop de detecção têm tratamento de erro (ver runFaceLoop), se
+    // WebGL causar problema o erro real aparece na tela em vez de
+    // travar em silêncio — não precisamos mais forçar CPU de
+    // antemão, o que só deixava tudo mais lento sem necessidade.
+    await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODELS_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODELS_URL);
+    modelsLoaded = true;
+    if (statusEl) statusEl.textContent = 'Posicione o rosto no centro';
+  }catch(e){
+    console.error('Falha ao carregar modelos de reconhecimento facial', e);
+    if (statusEl){
+      statusEl.className = 'cam-status fail';
+      statusEl.textContent = 'Erro ao carregar reconhecimento facial: ' + (e.message || e);
+    }
+    throw e; // repassa pro runFaceLoop saber que falhou e não continuar
+  }
+}
+
+async function startCamera(videoElId, statusElId){
+  const video = document.getElementById(videoElId);
+  const statusEl = statusElId ? document.getElementById(statusElId) : null;
+
+  // Contexto inseguro (http fora de localhost) é a causa mais comum de
+  // tela preta: o navegador bloqueia getUserMedia sem avisar visualmente.
+  const isSecure = window.isSecureContext;
+  if (!isSecure){
+    if (statusEl){
+      statusEl.className = 'cam-status fail';
+      statusEl.textContent = 'Câmera bloqueada: acesse por https:// ou localhost (veja instruções)';
+    }
+    console.error('Contexto inseguro — getUserMedia bloqueado pelo navegador.');
+    return false;
+  }
+
+  try{
+    // Abre a câmera e confere se a imagem NÃO é preta. Alguns PCs têm
+    // várias "câmeras" (infravermelho do Windows Hello, câmera virtual,
+    // webcam USB): a padrão pode entregar quadro preto. Nesse caso o
+    // sistema testa as outras, uma a uma, e lembra qual funcionou.
+    const frameIsBlack = () => {
+      try{
+        const c = document.createElement('canvas'); c.width = 32; c.height = 24;
+        const x = c.getContext('2d'); x.drawImage(video, 0, 0, 32, 24);
+        const d = x.getImageData(0, 0, 32, 24).data; let s = 0;
+        for (let i = 0; i < d.length; i += 4) s += d[i] + d[i+1] + d[i+2];
+        return (s / (d.length / 4 * 3)) < 4;
+      }catch(e){ return false; }
+    };
+    const openWith = async (constraints) => {
+      if (activeStream){ activeStream.getTracks().forEach(t => t.stop()); activeStream = null; }
+      activeStream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
+      video.muted = true;
+      video.setAttribute('playsinline', '');
+      video.srcObject = activeStream;
+      if (video.readyState < 1){
+        await Promise.race([
+          new Promise(r => video.onloadedmetadata = r),
+          new Promise(r => setTimeout(r, 3000))
+        ]);
+      }
+      try{ await video.play(); }catch(playErr){ console.warn('play() falhou', playErr); }
+      await new Promise(r => setTimeout(r, 900)); // dá tempo da webcam "acordar"
+      return !frameIsBlack();
+    };
+
+    let savedId = null;
+    try{ savedId = localStorage.getItem('totem_camera_id'); }catch(e){}
+    let okFrame = false;
+    try{
+      okFrame = await openWith(savedId ? { deviceId: { exact: savedId } } : { width: { ideal: 640 }, height: { ideal: 480 } });
+    }catch(e1){
+      if (e1.name === 'NotAllowedError') throw e1;
+      console.warn('Câmera salva/padrão falhou', e1);
+      try{ localStorage.removeItem('totem_camera_id'); }catch(e){}
+      okFrame = await openWith(true);
+    }
+    if (!okFrame){
+      const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      console.warn('Quadro preto; câmeras:', devs.map(d => d.label));
+      // Pula câmeras infravermelhas/virtuais, testa as demais
+      const candidates = devs.filter(d => !/\b(ir|infra|virtual|obs)\b/i.test(d.label || ''));
+      for (const d of (candidates.length ? candidates : devs)){
+        try{
+          if (await openWith({ deviceId: { exact: d.deviceId } })){
+            okFrame = true;
+            try{ localStorage.setItem('totem_camera_id', d.deviceId); }catch(e){}
+            break;
+          }
+        }catch(e){ console.warn('Falhou câmera', d.label, e); }
+      }
+    }
+    if (!okFrame){
+      if (statusEl){
+        statusEl.className = 'cam-status fail';
+        statusEl.textContent = 'A câmera abriu mas a imagem está preta. Verifique tampa/chave de privacidade da webcam e se outro programa está usando ela.';
+      }
+      return false;
+    }
+
+    // IMPORTANTE: "metadados carregados" não garante que o vídeo já
+    // tem frames de imagem de verdade prontos pra análise — em vários
+    // WebViews do Android, videoWidth/videoHeight ficam 0 por um
+    // tempinho mesmo depois do loadedmetadata disparar. Se a
+    // detecção facial começar a rodar nesse meio-tempo, ela analisa
+    // um frame vazio pra sempre e nunca acha rosto nenhum, sem gerar
+    // nenhum erro visível. Por isso esperamos de verdade até o vídeo
+    // ter dimensão válida, com um limite de tempo de segurança.
+    const deadline = Date.now() + 4000;
+    while ((video.videoWidth === 0 || video.videoHeight === 0) && Date.now() < deadline){
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (video.videoWidth === 0 || video.videoHeight === 0){
+      console.error('Vídeo nunca ficou pronto (videoWidth/videoHeight continuam 0)');
+      if (statusEl){
+        statusEl.className = 'cam-status fail';
+        statusEl.textContent = 'A câmera abriu, mas o vídeo não ficou pronto pra análise. Tente sair e entrar de novo.';
+      }
+      return false;
+    }
+
+    return true;
+  }catch(e){
+    console.error('Erro de câmera', e);
+    if (statusEl){
+      statusEl.className = 'cam-status fail';
+      if (e.name === 'NotAllowedError'){
+        statusEl.textContent = 'Permissão de câmera negada. Feche o totem (parar.bat) e abra de novo pelo iniciar.bat.';
+      } else if (e.name === 'NotFoundError'){
+        statusEl.textContent = 'Nenhuma câmera encontrada. Confira se a webcam USB está conectada e aparece no Gerenciador de Dispositivos.';
+      } else if (e.name === 'NotReadableError'){
+        statusEl.textContent = 'Câmera em uso por outro app. Feche outros apps e tente de novo.';
+      } else {
+        statusEl.textContent = 'Erro ao acessar a câmera: ' + e.message;
+      }
+    }
+    return false;
+  }
+}
+
+function stopCamera(){
+  if (currentFaceLoopStop) currentFaceLoopStop();
+  currentFaceLoopStop = null;
+  if (faceLoopHandle) clearTimeout(faceLoopHandle);
+  faceLoopHandle = null;
+  if (activeStream){
+    activeStream.getTracks().forEach(t => t.stop());
+    activeStream = null;
+  }
+  faceCurrentlyDetected = false;
+}
+
+function cancelCamera(backTo){
+  stopCamera();
+  stopSpeaking();
+  goTo(backTo);
+}
+
+// Loop contínuo LEVE: só detecta presença de rosto (rápido, sem
+// calcular identidade) — o cálculo pesado roda uma vez só, sob
+// demanda, em captureFaceDescriptorNow().
+async function runFaceLoop(videoId, canvasId, ovalId, statusId, onAutoCapture){
+  const statusEl = document.getElementById(statusId);
+
+  try{
+    await ensureModelsLoaded(statusId);
+  }catch(e){
+    // já mostrou o erro na tela dentro de ensureModelsLoaded — não
+    // continua o loop, mas mantém o botão de cancelar funcionando
+    return;
+  }
+
+  const video = document.getElementById(videoId);
+  const canvas = document.getElementById(canvasId);
+  const oval = document.getElementById(ovalId);
+
+  canvas.width = video.clientWidth || video.videoWidth || 480;
+  canvas.height = video.clientHeight || video.videoHeight || 360;
+  const ctx = canvas.getContext('2d');
+
+  // IMPORTANTE: esse loop contínuo faz só a checagem LEVE (só "existe
+  // um rosto aí ou não" — detectSingleFace sem landmarks nem
+  // descriptor). Assim que a detecção fica ESTÁVEL por alguns
+  // instantes seguidos (evita disparar em cima de um único frame
+  // instável/tremido), o sistema segue sozinho pra etapa de cálculo
+  // pesado (que realmente identifica a pessoa) — sem precisar de
+  // botão. O cálculo pesado roda só UMA VEZ nesse momento, não fica
+  // em loop, então não sobrecarrega o processador.
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160 });
+  let consecutiveErrors = 0;
+  let alreadyAnnouncedDetected = false;
+  let noFaceAttempts = 0;
+  let consecutiveDetections = 0;
+  let triedCpuFallback = false;
+  let loopActive = true;
+  let autoTriggered = false;
+  const STABLE_DETECTIONS_NEEDED = 2; // garante que "rosto detectado" apareça antes de autenticar
+
+  currentFaceLoopStop = () => { loopActive = false; };
+
+  // "Aquecimento" em segundo plano: a primeira vez que os modelos
+  // pesados (pontos do rosto + cálculo de identidade) rodam depois de
+  // carregados, costuma ser bem mais lenta que as próximas — é normal
+  // em IA rodando no navegador (compilação interna na primeira
+  // execução). Sem isso, essa lentidão da primeira vez acontecia
+  // bem no momento em que a pessoa já estava esperando o resultado.
+  // Rodando esse aquecimento aqui, escondido, enquanto a pessoa ainda
+  // está se posicionando na frente da câmera, o processamento de
+  // verdade (quando o rosto for confirmado) já sai rápido.
+  (async () => {
+    try{
+      const warmupOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 256 });
+      await faceapi
+        .detectSingleFace(video, warmupOptions)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+    }catch(e){
+      // aquecimento é só otimização — se falhar, sem problema, a
+      // captura de verdade mais tarde vai tentar de novo normalmente
+      console.log('Aquecimento do reconhecimento facial: ', e.message || e);
+    }
+  })();
+
+  async function loop(){
+    if (!activeStream || !loopActive || autoTriggered) return; // câmera foi fechada / cancelada / já avançou
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let detection = null;
+    try{
+      // Checagem LEVE — só encontra o retângulo do rosto, não calcula
+      // pontos nem identidade. Muito mais rápida que o processo completo.
+      detection = await faceapi.detectSingleFace(video, options);
+      consecutiveErrors = 0;
+    }catch(e){
+      consecutiveErrors++;
+      console.error('Erro na detecção facial (tentativa ' + consecutiveErrors + ')', e);
+      if (consecutiveErrors === 1){
+        statusEl.className = 'cam-status fail';
+        statusEl.textContent = 'Erro no reconhecimento: ' + (e.message || e) + ' — tentando novamente...';
+      }
+      if (consecutiveErrors >= 20){
+        statusEl.textContent = 'Não foi possível usar o reconhecimento facial neste dispositivo. Chame um atendente.';
+        return;
+      }
+      if (loopActive) faceLoopHandle = setTimeout(loop, 500);
+      return;
+    }
+
+    if (detection){
+      noFaceAttempts = 0;
+      faceCurrentlyDetected = true;
+
+      // Verifica se o rosto está bem centralizado, e não só "existe
+      // um rosto em algum lugar da imagem". Coordenadas da detecção
+      // vêm da imagem BRUTA da câmera (não espelhada); a tela mostra
+      // espelhado (efeito espelho normal), então a orientação
+      // horizontal precisa ser invertida pra bater com o que a
+      // pessoa está vendo na tela.
+      const box = detection.box;
+      const faceCenterX = box.x + box.width / 2;
+      const faceCenterY = box.y + box.height / 2;
+      const videoCenterX = video.videoWidth / 2;
+      const videoCenterY = video.videoHeight / 2;
+
+      const toleranceX = video.videoWidth * 0.16;
+      const toleranceY = video.videoHeight * 0.16;
+
+      const rawOffsetX = faceCenterX - videoCenterX;
+      const perceivedOffsetX = -rawOffsetX; // invertido por causa do espelhamento na tela
+      const offsetY = faceCenterY - videoCenterY;
+
+      let guidance = null;
+      if (perceivedOffsetX < -toleranceX) guidance = 'Mova o rosto para a direita';
+      else if (perceivedOffsetX > toleranceX) guidance = 'Mova o rosto para a esquerda';
+      else if (offsetY < -toleranceY) guidance = 'Mova o rosto para baixo';
+      else if (offsetY > toleranceY) guidance = 'Mova o rosto para cima';
+
+      if (guidance){
+        // Rosto detectado, mas fora do centro — orienta e NÃO conta
+        // como detecção estável ainda (evita autenticar com o rosto
+        // torto/fora de posição)
+        consecutiveDetections = 0;
+        alreadyAnnouncedDetected = false;
+        oval.classList.remove('locked');
+        statusEl.textContent = guidance;
+        statusEl.className = 'cam-status';
+        if (loopActive) faceLoopHandle = setTimeout(loop, 150);
+        return;
+      }
+
+      consecutiveDetections++;
+      oval.classList.add('locked');
+
+      if (consecutiveDetections >= STABLE_DETECTIONS_NEEDED){
+        // Detecção estável e centralizada — avança sozinho, sem
+        // precisar de toque. A pessoa deve aguardar aqui.
+        autoTriggered = true;
+        loopActive = false;
+        statusEl.textContent = 'Rosto alinhado — autenticando, aguarde...';
+        statusEl.className = 'cam-status ok';
+        speak('Rosto reconhecido. Aguarde enquanto autentico.');
+        onAutoCapture();
+        return;
+      }
+
+      statusEl.textContent = 'Rosto detectado, mantenha a posição...';
+      statusEl.className = 'cam-status ok';
+      if (!alreadyAnnouncedDetected){
+        speak('Rosto detectado. Aguarde um instante.');
+        alreadyAnnouncedDetected = true;
+      }
+    } else {
+      noFaceAttempts++;
+      consecutiveDetections = 0;
+      faceCurrentlyDetected = false;
+      alreadyAnnouncedDetected = false;
+      oval.classList.remove('locked');
+
+      // Depois de MUITAS tentativas sem NUNCA achar rosto nenhum (com
+      // vídeo já validado como tendo imagem de verdade), é sinal de
+      // que o backend de processamento (WebGL, acelerado por
+      // hardware) pode estar calculando errado nesse aparelho
+      // específico. Troca automaticamente pro backend CPU (mais
+      // lento, mas correto) e continua tentando.
+      if (noFaceAttempts === 15 && !triedCpuFallback && video.videoWidth > 0){
+        triedCpuFallback = true;
+        statusEl.textContent = 'Ajustando o reconhecimento facial pra esse aparelho, aguarde...';
+        try{
+          if (faceapi.tf && typeof faceapi.tf.setBackend === 'function'){
+            await faceapi.tf.setBackend('cpu');
+            await faceapi.tf.ready();
+            console.log('Trocado pro backend CPU do TensorFlow.js após falhas repetidas no WebGL');
+          }
+        }catch(fallbackErr){
+          console.error('Falha ao trocar pro backend CPU', fallbackErr);
+        }
+        noFaceAttempts = 0;
+      } else if (noFaceAttempts > 6){
+        const backendInfo = triedCpuFallback ? ' [backend: cpu]' : '';
+        statusEl.textContent = `Posicione o rosto no centro (vídeo: ${video.videoWidth}x${video.videoHeight}, tentativas: ${noFaceAttempts}${backendInfo})`;
+      } else {
+        statusEl.textContent = 'Posicione o rosto no centro';
+      }
+      statusEl.className = 'cam-status';
+    }
+
+    // Throttle: espera um pouco entre cada checagem, em vez de rodar
+    // a cada frame de tela (~30-60x por segundo). Isso dá folga pro
+    // processador, principalmente no backend CPU — é a causa mais
+    // provável dos travamentos anteriores.
+    if (loopActive) faceLoopHandle = setTimeout(loop, 150);
+  }
+  loop();
+}
+
+/**
+ * Roda a análise PESADA (pontos do rosto + cálculo dos 128 números
+ * que identificam a pessoa) UMA ÚNICA VEZ, no frame atual do vídeo.
+ * Chamado só no momento em que o usuário toca em "Capturar" — não
+ * fica rodando em loop o tempo todo.
+ */
+/**
+ * Tira uma foto (JPEG em base64) do frame atual do vídeo — usada pra
+ * guardar quem cadastrou cada armário, visível no modo admin em
+ * "Detalhes". Precisa ser chamada ANTES de stopCamera() encerrar o
+ * vídeo. A foto é salva sem espelhamento (o espelho é só efeito
+ * visual em tela, não afeta o frame real capturado aqui).
+ */
+function capturePhotoSnapshot(videoId){
+  try{
+    const video = document.getElementById(videoId);
+    if (!video || !video.videoWidth) return null;
+    const snap = document.createElement('canvas');
+    // Limita o tamanho pra não gerar fotos gigantes desnecessariamente
+    const maxDim = 320;
+    const scale = Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight));
+    snap.width = Math.round(video.videoWidth * scale);
+    snap.height = Math.round(video.videoHeight * scale);
+    const sctx = snap.getContext('2d');
+    sctx.drawImage(video, 0, 0, snap.width, snap.height);
+    return snap.toDataURL('image/jpeg', 0.7);
+  }catch(e){
+    console.error('Falha ao capturar foto do rosto', e);
+    return null;
+  }
+}
+
+async function captureFaceDescriptorNow(videoId){
+  const video = document.getElementById(videoId);
+  // IMPORTANTE: esse é o cálculo que gera os 128 números que
+  // identificam a pessoa de verdade — usado tanto pra cadastrar
+  // quanto pra decidir se abre a porta de outra pessoa ou não.
+  // Precisão aqui importa muito mais que velocidade (o inputSize
+  // menor usado no loop leve de presença é só pra "existe um rosto
+  // aí ou não", não precisa ser preciso — mas aqui precisa).
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 256 });
+
+  const detection = await faceapi
+    .detectSingleFace(video, options)
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+
+  if (!detection) return null;
+  return detection.descriptor;
+}
+
+async function captureRegister(){
+  const statusEl = document.getElementById('reg-status');
+  statusEl.className = 'cam-status';
+  statusEl.textContent = 'Processando reconhecimento facial, aguarde...';
+
+  let descriptorRaw;
+  try{
+    descriptorRaw = await captureFaceDescriptorNow('reg-video');
+  }catch(e){
+    console.error('Erro ao calcular o descriptor facial', e);
+    statusEl.className = 'cam-status fail';
+    statusEl.textContent = 'Erro ao processar o rosto: ' + (e.message || e) + '. Tentando de novo...';
+    setTimeout(() => runFaceLoop('reg-video', 'reg-canvas', 'reg-oval', 'reg-status', captureRegister), 1200);
+    return;
+  }
+  if (!descriptorRaw){
+    statusEl.className = 'cam-status fail';
+    statusEl.textContent = 'Não foi possível capturar o rosto nesse instante. Tentando de novo...';
+    setTimeout(() => runFaceLoop('reg-video', 'reg-canvas', 'reg-oval', 'reg-status', captureRegister), 1200);
+    return;
+  }
+
+  const descriptor = Array.from(descriptorRaw);
+  const photo = capturePhotoSnapshot('reg-video'); // precisa ser antes de stopCamera()
+  lastActionWasRetrieval = false;
+  stopCamera();
+  goTo('screen-opening');
+
+  if (DEMO_MODE){
+    const locker = lockers.find(l => l.channel === selectedChannel);
+    locker.faceDescriptor = descriptor;
+    locker.occupied = 1;
+    locker.user_ref = 'rosto cadastrado';
+    locker.photo = photo;
+    locker.occupiedAt = new Date().toISOString();
+    saveLockers();
+    await new Promise(r => setTimeout(r, 1000));
+    showResult(true);
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/lockers/${selectedChannel}/register-face`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ descriptor, photo })
+    });
+    const data = await res.json();
+    if (data.success){
+      showResult(true, null, data.door_sensor_confirmed);
+    } else {
+      showResult(false, data.error || 'Não foi possível cadastrar o rosto', data.door_sensor_confirmed);
+    }
+  }catch(e){
+    showResult(false, 'Sem conexão com o servidor');
+  }
+}
+
+async function captureVerify(){
+  const statusEl = document.getElementById('ver-status');
+  statusEl.className = 'cam-status';
+  statusEl.textContent = 'Processando reconhecimento facial, aguarde...';
+
+  let descriptorRaw;
+  try{
+    descriptorRaw = await captureFaceDescriptorNow('ver-video');
+  }catch(e){
+    console.error('Erro ao calcular o descriptor facial', e);
+    statusEl.className = 'cam-status fail';
+    statusEl.textContent = 'Erro ao processar o rosto: ' + (e.message || e) + '. Tentando de novo...';
+    setTimeout(() => runFaceLoop('ver-video', 'ver-canvas', 'ver-oval', 'ver-status', captureVerify), 1200);
+    return;
+  }
+  if (!descriptorRaw){
+    statusEl.className = 'cam-status fail';
+    statusEl.textContent = 'Não foi possível capturar o rosto nesse instante. Tentando de novo...';
+    setTimeout(() => runFaceLoop('ver-video', 'ver-canvas', 'ver-oval', 'ver-status', captureVerify), 1200);
+    return;
+  }
+
+  const descriptor = Array.from(descriptorRaw);
+  lastActionWasRetrieval = true;
+  stopCamera();
+  goTo('screen-opening');
+
+  if (DEMO_MODE){
+    const locker = lockers.find(l => l.channel === selectedChannel);
+    if (!locker.faceDescriptor){
+      await new Promise(r => setTimeout(r, 600));
+      showResult(false, 'Este armário não tem cadastro facial válido (demo).');
+      return;
+    }
+    const distance = faceapi.euclideanDistance(descriptor, locker.faceDescriptor);
+    await new Promise(r => setTimeout(r, 800));
+    if (distance <= FACE_MATCH_THRESHOLD){
+      locker.occupied = 0;
+      locker.user_ref = null;
+      locker.faceDescriptor = null;
+      saveLockers();
+      showResult(true);
+    } else {
+      showResult(false, 'Rosto não corresponde ao cadastro deste armário. Acesso negado.');
+    }
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/api/lockers/${selectedChannel}/verify-face`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ descriptor })
+    });
+    const data = await res.json();
+    if (data.success && data.match){
+      showResult(true, null, data.door_sensor_confirmed);
+    } else if (data.match === false && data.distance !== undefined){
+      showResult(false, `Rosto não corresponde ao cadastro deste armário (distância: ${data.distance.toFixed(2)}).`);
+    } else {
+      showResult(false, data.error || 'Não foi possível verificar', data.door_sensor_confirmed);
+    }
+  }catch(e){
+    showResult(false, 'Sem conexão com o servidor');
+  }
+}
+
+// =====================================================================
+
+function showResult(ok, errorMsg, doorSensorConfirmed){
+  const icon = document.getElementById('result-icon');
+  const title = document.getElementById('result-title');
+  const sub = document.getElementById('result-sub');
+
+  if(ok){
+    // Chegando aqui com ok=true, a abertura é de verdade: ou o sensor
+    // confirmou (doorSensorConfirmed === true), ou a verificação por
+    // sensor está desligada (doorSensorConfirmed === null/undefined).
+    // Nunca mais aparece "sucesso" sem confirmação quando o sensor
+    // está ativado — isso agora é filtrado no backend.
+    icon.className = 'icon-circle ok';
+    icon.textContent = '✓';
+
+    if (lastActionWasRetrieval){
+      title.textContent = 'Armário aberto';
+      sub.textContent = 'Retire seus itens e feche a porta';
+      speak('Identidade confirmada. Armário aberto. Retire seus itens e feche a porta.');
+    } else {
+      title.textContent = 'Rosto cadastrado';
+      sub.textContent = 'Guarde seu item e feche a porta';
+      speak('Rosto cadastrado com sucesso. Guarde seu item e feche a porta.');
+    }
+  }else{
+    icon.className = 'icon-circle fail';
+    icon.textContent = '!';
+
+    if (doorSensorConfirmed === false){
+      // Falha específica: comando foi aceito pela placa, mas o sensor
+      // de fim de curso não confirmou a abertura — nada foi salvo.
+      title.textContent = 'Porta não abriu — possível defeito';
+      sub.textContent = errorMsg || 'A porta não abriu. Pode estar com defeito. Verifique.';
+      speak('Atenção. A porta não abriu e pode estar com defeito. É necessário verificar.');
+    } else {
+      title.textContent = 'Não foi possível abrir';
+      sub.textContent = errorMsg || 'Chame um atendente para ajudar';
+      if (lastActionWasRetrieval){
+        speak('Rosto não reconhecido. Acesso negado. Chame um atendente se precisar de ajuda.');
+      } else {
+        speak('Não foi possível concluir o cadastro. Chame um atendente se precisar de ajuda.');
+      }
+    }
+  }
+  goTo('screen-result');
+}
+
+function resetKiosk(){
+  stopCamera();
+  stopSpeaking();
+  selectedChannel = null;
+  loadLockers();
+  goTo('screen-select');
+}
+
+loadLockers();
+setInterval(loadLockers, 8000);
+
+updateModeBanner();
+setInterval(updateModeBanner, 15000);
+
+checkDoorAlerts();
+setInterval(checkDoorAlerts, 6000);
+
+// O Chrome só oferece "Instalar app" se existir um service worker
+// ativo — é um dos critérios técnicos de instalabilidade de PWA.
+// Service worker não é necessário aqui: no Windows o .bat abre o
+// navegador direto em modo quiosque, sem precisar "instalar como app".
+</script>
+
+</body>
+</html>
